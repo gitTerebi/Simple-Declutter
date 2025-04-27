@@ -143,10 +143,8 @@ namespace TYR_DeClutterer
             {
                 if (obj.activeSelf == true)
                 {
-                    bool foundClutterName = clutterNameDictionary.Keys.Any(key => {
-                        return obj.name.ToLower().Contains(key.ToLower()) && clutterNameDictionary[key];
-                    });
-
+                    bool foundClutterName = clutterNameDictionary.Keys.Any(key => obj.name.ToLower().Contains(key.ToLower()) && clutterNameDictionary[key]);
+                    
                     if(foundClutterName)
                         obj.SetActive(false);
                     else

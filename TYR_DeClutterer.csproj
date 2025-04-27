@@ -57,7 +57,8 @@
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="xcopy /y /f &quot;$(TargetPath)&quot; &quot;G:\games\~spt 3.10\BepInEx\plugins\&quot;" />
+    <Exec Command="xcopy /y /f &quot;$(TargetPath)&quot; &quot;$(ProjectDir)\Build\BepInEx\plugins\&quot;" />
+    <Exec Command="(powershell Compress-Archive -Path '$(ProjectDir)\Build\BepInEx' -DestinationPath '$(ProjectDir)\Build\somtam.SimpleDeClutter.310.zip' -Force)"/>
   </Target>
 
 </Project>

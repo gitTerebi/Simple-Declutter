@@ -17,7 +17,7 @@ using System.Runtime.Remoting.Messaging;
 
 namespace TYR_DeClutterer
 {
-    [BepInPlugin("com.TYR.DeClutter", "TYR_DeClutter", "1.1.5")]
+    [BepInPlugin("com.TYR.DeClutter", "TYR_DeClutter", "1.2.0")]
     public class DeClutter : BaseUnityPlugin
     {
         private static GameWorld gameWorld;
@@ -35,8 +35,19 @@ namespace TYR_DeClutterer
         public static ConfigEntry<bool> declutterPuddlesEnabledConfig;
         public static ConfigEntry<bool> declutterShardsEnabledConfig;
         public static ConfigEntry<bool> declutterUnscrutinizedEnabledConfig;
-        public static ConfigEntry<float> declutterScaleOffsetConfig;     
+        public static ConfigEntry<float> declutterScaleOffsetConfig;
         public static bool applyDeclutter = false;
+        public static ConfigEntry<bool> EnableFactory;
+        public static ConfigEntry<bool> EnableLighthouse;
+        public static ConfigEntry<bool> EnableShoreline;
+        public static ConfigEntry<bool> EnableReserve;
+        public static ConfigEntry<bool> EnableWoods;
+        public static ConfigEntry<bool> EnableInterchange;
+        public static ConfigEntry<bool> EnableCustoms;
+        public static ConfigEntry<bool> EnableStreets;
+        public static ConfigEntry<bool> EnableGroundZero;
+        public static ConfigEntry<bool> EnableLab;
+
         public static bool defaultsoftParticles = QualitySettings.softParticles;
         public static int defaultparticleRaycastBudget = QualitySettings.particleRaycastBudget;
         public static bool defaultsoftVegetation = QualitySettings.softVegetation;
@@ -47,6 +58,7 @@ namespace TYR_DeClutterer
         public static int defaultmasterTextureLimit = QualitySettings.masterTextureLimit;
         public static float defaultlodBias = QualitySettings.lodBias;
         public static ManualLogSource LogSource;
+        public RaidSettings activeRaidSettings;
 
         private void Awake()
         {
@@ -62,15 +74,28 @@ namespace TYR_DeClutterer
             declutterSpentCartridgesEnabledConfig = Config.Bind("B - De-Clutter Settings", "C - Spent Cartridges De-Clutter", true, "De-Clutters pre-generated spent ammunition on floor.");
             declutterFakeFoodEnabledConfig = Config.Bind("B - De-Clutter Settings", "D - Fake Food De-Clutter", true, "De-Clutters fake 'food' items.");
             declutterDecalsEnabledConfig = Config.Bind("B - De-Clutter Settings", "E - Decal De-Clutter", true, "De-Clutters decals (Blood, grafiti, etc.)");
-            declutterPuddlesEnabledConfig = Config.Bind("B - De-Clutter Settings", "F - Puddle De-Clutter", true, "De-Clutters fake reflective puddles.");  
+            declutterPuddlesEnabledConfig = Config.Bind("B - De-Clutter Settings", "F - Puddle De-Clutter", true, "De-Clutters fake reflective puddles.");
             declutterShardsEnabledConfig = Config.Bind("B - De-Clutter Settings", "G - Glass & Tile Shards", true, "De-Clutters things labeled 'shards' or similar. The things you can step on that make noise.");
             declutterUnscrutinizedEnabledConfig = Config.Bind("B - De-Clutter Settings", "H - Experimental Unscrutinized Disabler", false, "De-Clutters literally everything that doesn't have a collider, doesn't chare what the name is or the group is so above enablers will have no effect. It'll disable it all. Experimental, testing however has had positive results. Massively improves FPS.");
+
+            EnableFactory = Config.Bind("C - Map", "Factory", true, "Enable declutter on the map.");
+            EnableLighthouse = Config.Bind("C - Map", "Lighthouse", true, "Enable declutter on the map.");
+            EnableShoreline = Config.Bind("C - Map", "Shoreline", true, "Enable declutter on the map.");
+            EnableReserve = Config.Bind("C - Map", "Reserve", true, "Enable declutter on the map.");
+            EnableWoods = Config.Bind("C - Map", "Woods", true, "Enable declutter on the map.");
+            EnableInterchange = Config.Bind("C - Map", "Interchange", true, "Enable declutter on the map.");
+            EnableCustoms = Config.Bind("C - Map", "Customs", true, "Enable declutter on the map.");
+            EnableStreets = Config.Bind("C - Map", "Streets", true, "Enable declutter on the map.");
+            EnableGroundZero = Config.Bind("C - Map", "Ground Zero", true, "Enable declutter on the map.");
+            EnableLab = Config.Bind("C - Map", "Lab", false, "Enable declutter on the map.");
+
             InitializeClutterNames();
 
             // Register the SettingChanged event
             declutterEnabledConfig.SettingChanged += OnApplyDeclutterSettingChanged;
 
         }
+
         private void Update()
         {
             if (!MapLoaded() || deCluttered || !declutterEnabledConfig.Value)
@@ -79,6 +104,8 @@ namespace TYR_DeClutterer
             gameWorld = Singleton<GameWorld>.Instance;
             if (gameWorld == null || gameWorld.MainPlayer == null || IsInHideout())
                 return;
+            
+            LogSource.LogInfo("Declutter plugin onUpdate");
 
             deCluttered = true;
             DeClutterScene();
@@ -123,7 +150,7 @@ namespace TYR_DeClutterer
         }
         private void DeClutterVisuals()
         {
-                
+
             // QualitySettings.softParticles = defaultsoftParticles;
             // QualitySettings.particleRaycastBudget = defaultparticleRaycastBudget;
             // QualitySettings.softVegetation = defaultsoftVegetation;
@@ -133,10 +160,35 @@ namespace TYR_DeClutterer
             // QualitySettings.shadowCascades = defaultshadowCascades;
             // QualitySettings.masterTextureLimit = defaultmasterTextureLimit;
             // QualitySettings.lodBias = defaultlodBias;
-                
+
         }
         private void DeClutterEnabled()
         {
+            var session = (TarkovApplication)Singleton<ClientApplication<ISession>>.Instance;
+            if (session == null) throw new Exception("No session!");
+            activeRaidSettings = (RaidSettings)(typeof(TarkovApplication).GetField("_raidSettings", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(session));
+
+            LogSource.LogInfo($"Doing declutter for {activeRaidSettings?.LocationId}");
+
+            // Is declutter enabled for this map?
+            switch (activeRaidSettings?.LocationId)
+            {
+                case "Lighthouse": if (!EnableLighthouse.Value) return; break;
+                case "Woods": if (!EnableWoods.Value) return; break;
+                case "factory4_night":
+                case "factory4_day": if (!EnableFactory.Value) return; break;
+                case "bigmap": if (EnableCustoms.Value) return; break;
+                case "RezervBase": if (EnableReserve.Value) return; break;
+                case "Interchange": if (EnableInterchange.Value) return; break;
+                case "TarkovStreets": if (EnableStreets.Value) return; break;
+                case "Sandbox":
+                case "Sandbox_high": if (EnableGroundZero.Value) return; break;
+                case "Shoreline": if (EnableShoreline.Value) return; break;
+                case "laboratory": if (EnableLab.Value) return; break;
+                case null: break;
+                default: break;
+            }
+
             InitializeClutterNames(); // update values
 
             foreach (GameObject obj in savedClutterObjects)
@@ -144,8 +196,8 @@ namespace TYR_DeClutterer
                 if (obj.activeSelf == true)
                 {
                     bool foundClutterName = clutterNameDictionary.Keys.Any(key => obj.name.ToLower().Contains(key.ToLower()) && clutterNameDictionary[key]);
-                    
-                    if(foundClutterName)
+
+                    if (foundClutterName)
                         obj.SetActive(false);
                     else
                         obj.SetActive(true);
@@ -208,7 +260,7 @@ namespace TYR_DeClutterer
                 {
                     isGoodThing = isLODGroup;
                 }
-                
+
                 bool isTarkovContainer = obj.GetComponent<LootableContainer>() != null;
                 bool isTarkovContainerGroup = obj.GetComponent<LootableContainersGroup>() != null;
                 bool isTarkovObservedItem = obj.GetComponent<ObservedLootItem>() != null;
@@ -232,10 +284,10 @@ namespace TYR_DeClutterer
                 bool isWindowBreaker = obj.GetComponent<WindowBreaker>() != null;
                 bool isBallisticCollider = obj.GetComponent<BallisticCollider>() != null;
                 bool isBotSpawner = obj.GetComponent<BotSpawner>() != null;
-                bool isBadThing = isTarkovContainer || isTarkovContainerGroup || isTarkovObservedItem || isTarkovItem || isTarkovWeaponMod || 
-                                  hasRainCondensator || isLocalPlayer || isPlayer || isBotOwner || isCullingObject || isCullingLightObject || 
-                                  isCullingGroup || isDisablerCullingObject || isObservedCullingManager || isPerfectCullingCrossSceneGroup || 
-                                  isBakedLodContent || isScreenDistanceSwitcher || isGuidComponent || isOcclusionPortal || isBotSpawner || 
+                bool isBadThing = isTarkovContainer || isTarkovContainerGroup || isTarkovObservedItem || isTarkovItem || isTarkovWeaponMod ||
+                                  hasRainCondensator || isLocalPlayer || isPlayer || isBotOwner || isCullingObject || isCullingLightObject ||
+                                  isCullingGroup || isDisablerCullingObject || isObservedCullingManager || isPerfectCullingCrossSceneGroup ||
+                                  isBakedLodContent || isScreenDistanceSwitcher || isGuidComponent || isOcclusionPortal || isBotSpawner ||
                                   isMultisceneSharedOccluder || isWindowBreaker || isBallisticCollider;
 
                 if (isGoodThing && !isBadThing)
@@ -319,7 +371,7 @@ namespace TYR_DeClutterer
             clutterNameDictionary["package_garbage"] = declutterGarbageEnabledConfig.Value;
             clutterNameDictionary["wood_board"] = declutterGarbageEnabledConfig.Value;
             clutterNameDictionary["leaves_"] = declutterGarbageEnabledConfig.Value;
-    
+
             clutterNameDictionary["trash_pile_"] = declutterHeapsEnabledConfig.Value;
             clutterNameDictionary["_trash_pile"] = declutterHeapsEnabledConfig.Value;
             clutterNameDictionary["crushed_concrete"] = declutterHeapsEnabledConfig.Value;
@@ -365,7 +417,7 @@ namespace TYR_DeClutterer
             clutterNameDictionary["vetky5_"] = declutterHeapsEnabledConfig.Value;
             clutterNameDictionary["vetky6_"] = declutterHeapsEnabledConfig.Value;
             clutterNameDictionary["tile_broken_"] = declutterHeapsEnabledConfig.Value;
-            
+
 
             clutterNameDictionary["shotshell_"] = declutterSpentCartridgesEnabledConfig.Value;
             clutterNameDictionary["shells_"] = declutterSpentCartridgesEnabledConfig.Value;
@@ -374,7 +426,7 @@ namespace TYR_DeClutterer
             clutterNameDictionary["rifleshell_"] = declutterSpentCartridgesEnabledConfig.Value;
             clutterNameDictionary["_rifleshell"] = declutterSpentCartridgesEnabledConfig.Value;
             clutterNameDictionary["rifle_shells_"] = declutterSpentCartridgesEnabledConfig.Value;
-            
+
             clutterNameDictionary["canned"] = declutterFakeFoodEnabledConfig.Value;
             clutterNameDictionary["canned_"] = declutterFakeFoodEnabledConfig.Value;
             clutterNameDictionary["can_"] = declutterFakeFoodEnabledConfig.Value;
@@ -392,7 +444,7 @@ namespace TYR_DeClutterer
             clutterNameDictionary["medkit_"] = declutterFakeFoodEnabledConfig.Value;
             clutterNameDictionary["_cup"] = declutterFakeFoodEnabledConfig.Value;
             clutterNameDictionary["plasticcup_"] = declutterFakeFoodEnabledConfig.Value;
-            
+
             clutterNameDictionary["goshan_decal"] = declutterDecalsEnabledConfig.Value;
             clutterNameDictionary["ground_decal"] = declutterDecalsEnabledConfig.Value;
             clutterNameDictionary["decalgraffiti"] = declutterDecalsEnabledConfig.Value;
@@ -403,7 +455,7 @@ namespace TYR_DeClutterer
             clutterNameDictionary["decal_drip"] = declutterDecalsEnabledConfig.Value;
             clutterNameDictionary["decal_"] = declutterDecalsEnabledConfig.Value;
             clutterNameDictionary["decals_"] = declutterDecalsEnabledConfig.Value;
-            
+
             clutterNameDictionary["puddle"] = declutterPuddlesEnabledConfig.Value;
             clutterNameDictionary["puddles_"] = declutterPuddlesEnabledConfig.Value;
             clutterNameDictionary["_puddles"] = declutterPuddlesEnabledConfig.Value;
@@ -416,7 +468,7 @@ namespace TYR_DeClutterer
             clutterNameDictionary["lesa_crush"] = declutterShardsEnabledConfig.Value;
             clutterNameDictionary["shards_"] = declutterShardsEnabledConfig.Value;
             clutterNameDictionary["_shards"] = declutterShardsEnabledConfig.Value;
-            
+
         }
         private Dictionary<string, bool> dontDisableDictionary = new Dictionary<string, bool>
         {
@@ -460,80 +512,81 @@ namespace TYR_DeClutterer
             bool dontDisableName = dontDisableDictionary.Keys.Any(key => obj.name.ToLower().Contains(key.ToLower()));
             //EFT.UI.ConsoleScreen.LogError("Found Lod Group " + obj.name);
             if (declutterUnscrutinizedEnabledConfig.Value == true)
-                {
-                    foundClutterName = true;
-                }
+            {
+                foundClutterName = true;
+            }
             else
+            {
+                foundClutterName = clutterNameDictionary.Keys.Any(key =>
                 {
-                    foundClutterName = clutterNameDictionary.Keys.Any(key => {
-                        return obj.name.ToLower().Contains(key.ToLower());
-                    });
-                }
-                if (foundClutterName && !dontDisableName)
-                {
+                    return obj.name.ToLower().Contains(key.ToLower());
+                });
+            }
+            if (foundClutterName && !dontDisableName)
+            {
                 //EFT.UI.ConsoleScreen.LogError("Found Clutter Name" + obj.name);
-                    foreach (Transform child in obj.transform)
-                    {
-                        childGameMeshObject = child.gameObject;
-                        bool isTarkovContainer = childGameMeshObject.GetComponent<LootableContainer>() != null;
-                        bool isTarkovContainerGroup = childGameMeshObject.GetComponent<LootableContainersGroup>() != null;
-                        bool isTarkovObservedItem = childGameMeshObject.GetComponent<ObservedLootItem>() != null;
-                        bool isTarkovItem = childGameMeshObject.GetComponent<LootItem>() != null;
-                        bool isTarkovWeaponMod = childGameMeshObject.GetComponent<WeaponModPoolObject>() != null;
-                        bool hasRainCondensator = childGameMeshObject.GetComponent<RainCondensator>() != null;
-                        bool isLocalPlayer = childGameMeshObject.GetComponent<LocalPlayer>() != null;
-                        bool isPlayer = childGameMeshObject.GetComponent<Player>() != null;
-                        bool isBotOwner = childGameMeshObject.GetComponent<BotOwner>() != null;
-                        bool isCullingObject = childGameMeshObject.GetComponent<CullingObject>() != null;
-                        bool isCullingLightObject = childGameMeshObject.GetComponent<CullingLightObject>() != null;
-                        bool isCullingGroup = childGameMeshObject.GetComponent<CullingGroup>() != null;
-                        bool isDisablerCullingObject = childGameMeshObject.GetComponent<DisablerCullingObject>() != null;
-                        bool isObservedCullingManager = childGameMeshObject.GetComponent<ObservedCullingManager>() != null;
-                        bool isPerfectCullingCrossSceneGroup = childGameMeshObject.GetComponent<PerfectCullingCrossSceneGroup>() != null;
-                        bool isScreenDistanceSwitcher = childGameMeshObject.GetComponent<ScreenDistanceSwitcher>() != null;
-                        bool isBakedLodContent = childGameMeshObject.GetComponent<BakedLodContent>() != null;
-                        bool isGuidComponent = childGameMeshObject.GetComponent<GuidComponent>() != null;
-                        bool isOcclusionPortal = childGameMeshObject.GetComponent<OcclusionPortal>() != null;
-                        bool isMultisceneSharedOccluder = childGameMeshObject.GetComponent<MultisceneSharedOccluder>() != null;
-                        bool isWindowBreaker = childGameMeshObject.GetComponent<WindowBreaker>() != null;
-                        bool isBotSpawner = childGameMeshObject.GetComponent<BotSpawner>() != null;
-                        bool isBadThing = isTarkovContainer || isTarkovContainerGroup || isTarkovObservedItem || isTarkovItem || isTarkovWeaponMod ||
-                                          hasRainCondensator || isLocalPlayer || isPlayer || isBotOwner || isCullingObject || isCullingLightObject ||
-                                          isCullingGroup || isDisablerCullingObject || isObservedCullingManager || isPerfectCullingCrossSceneGroup ||
-                                          isBakedLodContent || isScreenDistanceSwitcher || isGuidComponent || isOcclusionPortal || isBotSpawner ||
-                                          isMultisceneSharedOccluder || isWindowBreaker;
+                foreach (Transform child in obj.transform)
+                {
+                    childGameMeshObject = child.gameObject;
+                    bool isTarkovContainer = childGameMeshObject.GetComponent<LootableContainer>() != null;
+                    bool isTarkovContainerGroup = childGameMeshObject.GetComponent<LootableContainersGroup>() != null;
+                    bool isTarkovObservedItem = childGameMeshObject.GetComponent<ObservedLootItem>() != null;
+                    bool isTarkovItem = childGameMeshObject.GetComponent<LootItem>() != null;
+                    bool isTarkovWeaponMod = childGameMeshObject.GetComponent<WeaponModPoolObject>() != null;
+                    bool hasRainCondensator = childGameMeshObject.GetComponent<RainCondensator>() != null;
+                    bool isLocalPlayer = childGameMeshObject.GetComponent<LocalPlayer>() != null;
+                    bool isPlayer = childGameMeshObject.GetComponent<Player>() != null;
+                    bool isBotOwner = childGameMeshObject.GetComponent<BotOwner>() != null;
+                    bool isCullingObject = childGameMeshObject.GetComponent<CullingObject>() != null;
+                    bool isCullingLightObject = childGameMeshObject.GetComponent<CullingLightObject>() != null;
+                    bool isCullingGroup = childGameMeshObject.GetComponent<CullingGroup>() != null;
+                    bool isDisablerCullingObject = childGameMeshObject.GetComponent<DisablerCullingObject>() != null;
+                    bool isObservedCullingManager = childGameMeshObject.GetComponent<ObservedCullingManager>() != null;
+                    bool isPerfectCullingCrossSceneGroup = childGameMeshObject.GetComponent<PerfectCullingCrossSceneGroup>() != null;
+                    bool isScreenDistanceSwitcher = childGameMeshObject.GetComponent<ScreenDistanceSwitcher>() != null;
+                    bool isBakedLodContent = childGameMeshObject.GetComponent<BakedLodContent>() != null;
+                    bool isGuidComponent = childGameMeshObject.GetComponent<GuidComponent>() != null;
+                    bool isOcclusionPortal = childGameMeshObject.GetComponent<OcclusionPortal>() != null;
+                    bool isMultisceneSharedOccluder = childGameMeshObject.GetComponent<MultisceneSharedOccluder>() != null;
+                    bool isWindowBreaker = childGameMeshObject.GetComponent<WindowBreaker>() != null;
+                    bool isBotSpawner = childGameMeshObject.GetComponent<BotSpawner>() != null;
+                    bool isBadThing = isTarkovContainer || isTarkovContainerGroup || isTarkovObservedItem || isTarkovItem || isTarkovWeaponMod ||
+                                      hasRainCondensator || isLocalPlayer || isPlayer || isBotOwner || isCullingObject || isCullingLightObject ||
+                                      isCullingGroup || isDisablerCullingObject || isObservedCullingManager || isPerfectCullingCrossSceneGroup ||
+                                      isBakedLodContent || isScreenDistanceSwitcher || isGuidComponent || isOcclusionPortal || isBotSpawner ||
+                                      isMultisceneSharedOccluder || isWindowBreaker;
                     if (isBadThing)
-                        {
-                            return false;
-                        }
-                    }
-                    foreach (Transform child in obj.transform)
-                    {
-                            childGameMeshObject = child.gameObject;
-                            if (child.GetComponent<MeshRenderer>() != null && !childGameMeshObject.name.ToLower().Contains("shadow") && !childGameMeshObject.name.ToLower().StartsWith("col") && !childGameMeshObject.name.ToLower().EndsWith("der"))
-                            {
-                                childHasMesh = true;
-                                // Exit the loop since we've found what we need
-                                break;
-                            }
-                    }
-                    if (!childHasMesh && !isGoodThing)
                     {
                         return false;
                     }
-                    foreach (Transform child in obj.transform)
+                }
+                foreach (Transform child in obj.transform)
+                {
+                    childGameMeshObject = child.gameObject;
+                    if (child.GetComponent<MeshRenderer>() != null && !childGameMeshObject.name.ToLower().Contains("shadow") && !childGameMeshObject.name.ToLower().StartsWith("col") && !childGameMeshObject.name.ToLower().EndsWith("der"))
                     {
-                        if ((child.GetComponent<MeshCollider>() != null || child.GetComponent<BoxCollider>() != null) && child.GetComponent<BallisticCollider>() == null)
+                        childHasMesh = true;
+                        // Exit the loop since we've found what we need
+                        break;
+                    }
+                }
+                if (!childHasMesh && !isGoodThing)
+                {
+                    return false;
+                }
+                foreach (Transform child in obj.transform)
+                {
+                    if ((child.GetComponent<MeshCollider>() != null || child.GetComponent<BoxCollider>() != null) && child.GetComponent<BallisticCollider>() == null)
+                    {
+                        childGameColliderObject = child.gameObject;
+                        if (childGameColliderObject != null && childGameColliderObject.activeSelf)
                         {
-                            childGameColliderObject = child.gameObject;
-                            if (childGameColliderObject != null && childGameColliderObject.activeSelf)
-                            {
-                                childHasCollider = true;
-                                // Exit the loop since we've found what we need
-                                break;
-                            }
+                            childHasCollider = true;
+                            // Exit the loop since we've found what we need
+                            break;
                         }
                     }
+                }
                 if (isGoodThing)
                 {
                     sizeOnY = 0.1f;
@@ -547,11 +600,11 @@ namespace TYR_DeClutterer
                     return false;
                 }
                 if ((childHasMesh || isGoodThing) && (!childHasCollider || isGoodThing) && sizeOnY <= 2f * declutterScaleOffsetConfig.Value)
-                    {
-                        savedClutterObjects.Add(obj);
-                        return true;
-                    }
+                {
+                    savedClutterObjects.Add(obj);
+                    return true;
                 }
+            }
             return false;
         }
         private float GetMeshSizeOnY(GameObject childGameObject)

@@ -8,26 +8,23 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using System.Collections;
+using SimpleDeclutter.Patches;
 using Koenigz.PerfectCulling.EFT;
 using BepInEx.Logging;
+using UnityEngine.SceneManagement;
 
 namespace SimpleDeclutter
 {
     [BepInPlugin("somtam.simple.declutter", "Simple Declutter", "1.0.0")]
     public class Plugin : BaseUnityPlugin
     {
-        private static GameWorld gameWorld;
-        public bool MapLoaded() => Singleton<GameWorld>.Instantiated;
-        public static Player Player;
         public static ShadowQuality defaultShadows = QualitySettings.shadows;
         public static ManualLogSource LogSource;
-        private RaidSettings activeRaidSettings;
-        private List<GameObject> allGameObjectsList = new List<GameObject>();
-        private List<GameObject> savedClutterObjects = new List<GameObject>();
-        private bool isOnMap = false;
-        private float update;
+        private static RaidSettings activeRaidSettings;
+        private static List<GameObject> allGameObjectsList = new List<GameObject>();
+        private static List<GameObject> savedClutterObjects = new List<GameObject>();
+        internal static bool isOnMap = false;
         private void Awake()
         {
             LogSource = Logger;
@@ -41,32 +38,9 @@ namespace SimpleDeclutter
             Settings.declutterEnabledConfig.SettingChanged += OnApplyDeclutterSettingChanged;
             Settings.framesaverPotatoShadow.SettingChanged += OnApplyFrameSaverChanged;
 
+            new RaidStartPatch().Enable();
+
             InitializeClutterNames();
-        }
-        private void Update()
-        {
-            // Plugin waiting for map load and is called on a loop, so only allow check every 5 secs
-            update += Time.deltaTime;
-            if (update > 2.0f)
-            {
-                update = 0.0f;
-
-                if (isOnMap || !MapLoaded()) return;
-
-                gameWorld = Singleton<GameWorld>.Instance;
-                if (gameWorld == null || gameWorld.MainPlayer == null || IsInHideout()) return;
-
-                isOnMap = true;
-
-                LogSource.LogInfo($"Plugin run clutter search...");
-
-                // Build declutter list
-                StaticManager.BeginCoroutine(GetAllGameObjectsInSceneCoroutine());
-                StaticManager.BeginCoroutine(GetValidDeclutterTargets());
-
-                ApplyDeclutter();
-                ApplyFrameSavers();
-            }
         }
         private void OnApplyDeclutterSettingChanged(object sender, EventArgs e)
         {
@@ -76,7 +50,7 @@ namespace SimpleDeclutter
         {
             if (isOnMap) ApplyFrameSavers();
         }
-        public void ApplyDeclutter()
+        public static void ApplyDeclutter()
         {
             if (Settings.declutterEnabledConfig.Value && EnabledForMap())
             {
@@ -90,7 +64,7 @@ namespace SimpleDeclutter
             }
 
         }
-        public void ApplyFrameSavers()
+        public static void ApplyFrameSavers()
         {
             if (Settings.framesaverPotatoShadow.Value && EnabledForMap())
             {
@@ -109,22 +83,7 @@ namespace SimpleDeclutter
             savedClutterObjects.Clear();
             isOnMap = false;
         }
-        private bool IsInHideout()
-        {
-            // Check if "bunker_2" is one of the active scene names
-            for (int i = 0; i < SceneManager.sceneCount; i++)
-            {
-                Scene scene = SceneManager.GetSceneAt(i);
-                if (scene.name == "bunker_2")
-                {
-                    //EFT.UI.ConsoleScreen.LogError("bunker_2 loaded, not running de-cluttering.");
-                    return true;
-                }
-            }
-            //EFT.UI.ConsoleScreen.LogError("bunker_2 not loaded, de-cluttering.");
-            return false;
-        }
-        private bool EnabledForMap()
+        private static bool EnabledForMap()
         {
             // Is declutter enabled for this map?
             var session = (TarkovApplication)Singleton<ClientApplication<ISession>>.Instance;
@@ -152,7 +111,7 @@ namespace SimpleDeclutter
 
             return enabled;
         }
-        private void DeClutterEnabled()
+        private static void DeClutterEnabled()
         {
             InitializeClutterNames(); // update values
 
@@ -174,7 +133,7 @@ namespace SimpleDeclutter
 
             }
         }
-        private void ReClutterEnabled()
+        private static void ReClutterEnabled()
         {
             foreach (GameObject obj in savedClutterObjects)
             {
@@ -184,7 +143,7 @@ namespace SimpleDeclutter
                 }
             }
         }
-        private IEnumerator GetValidDeclutterTargets()
+        internal static IEnumerator GetValidDeclutterTargets()
         {
             // Loop until the coroutine has finished
             while (true)
@@ -199,7 +158,7 @@ namespace SimpleDeclutter
                 yield break;
             }
         }
-        private IEnumerator GetAllGameObjectsInSceneCoroutine()
+        internal static IEnumerator GetAllGameObjectsInSceneCoroutine()
         {
             GameObject[] gameObjects = GameObject.FindObjectsOfType<GameObject>();
 
@@ -255,10 +214,10 @@ namespace SimpleDeclutter
             }
             yield break;
         }
-        private Dictionary<string, bool> clutterNameDictionary = new Dictionary<string, bool>
+        private static Dictionary<string, bool> clutterNameDictionary = new Dictionary<string, bool>
         {
         };
-        private void InitializeClutterNames()
+        private static void InitializeClutterNames()
         {
             clutterNameDictionary["turniket_"] = Settings.declutterGarbageEnabledConfig.Value;
             clutterNameDictionary["tray_"] = Settings.declutterGarbageEnabledConfig.Value;
@@ -266,8 +225,11 @@ namespace SimpleDeclutter
             clutterNameDictionary["styrofoam_"] = Settings.declutterGarbageEnabledConfig.Value;
             clutterNameDictionary["polyethylene_set"] = Settings.declutterGarbageEnabledConfig.Value;
             clutterNameDictionary["penyok_"] = Settings.declutterGarbageEnabledConfig.Value;
+            clutterNameDictionary["trashbag_"] = Settings.declutterGarbageEnabledConfig.Value;
             clutterNameDictionary["kaska"] = Settings.declutterGarbageEnabledConfig.Value;
             clutterNameDictionary["boot_"] = Settings.declutterGarbageEnabledConfig.Value;
+            clutterNameDictionary["garbage_"] = Settings.declutterGarbageEnabledConfig.Value;
+            clutterNameDictionary["garbage_"] = Settings.declutterGarbageEnabledConfig.Value;
             clutterNameDictionary["garbage_stone"] = Settings.declutterGarbageEnabledConfig.Value;
             clutterNameDictionary["garbage_paper"] = Settings.declutterGarbageEnabledConfig.Value;
             clutterNameDictionary["cable"] = Settings.declutterGarbageEnabledConfig.Value;
@@ -428,7 +390,7 @@ namespace SimpleDeclutter
             clutterNameDictionary["_shards"] = Settings.declutterShardsEnabledConfig.Value;
 
         }
-        private Dictionary<string, bool> dontDisableDictionary = new Dictionary<string, bool>
+        private static Dictionary<string, bool> dontDisableDictionary = new Dictionary<string, bool>
         {
             { "item_", true },
             { "weapon_", true },
@@ -450,7 +412,7 @@ namespace SimpleDeclutter
             { "shadow", true },
             { "mine", true }
         };
-        private bool ShouldDisableObject(GameObject obj)
+        private static bool ShouldDisableObject(GameObject obj)
         {
             if (obj == null)
             {
@@ -479,6 +441,8 @@ namespace SimpleDeclutter
             {
                 return obj.name.ToLower().Contains(key.ToLower());
             });
+
+
             // }
             if (foundClutterName && !dontDisableName)
             {
@@ -563,9 +527,15 @@ namespace SimpleDeclutter
                     return true;
                 }
             }
+            // else
+            // {
+            //     Plugin.LogSource.LogInfo($"NFI Object ${obj.name.ToLower()}");
+            // }
+
             return false;
+
         }
-        private float GetMeshSizeOnY(GameObject childGameObject)
+        private static float GetMeshSizeOnY(GameObject childGameObject)
         {
             MeshRenderer meshRenderer = childGameObject?.GetComponent<MeshRenderer>();
             if (meshRenderer != null && meshRenderer.enabled)

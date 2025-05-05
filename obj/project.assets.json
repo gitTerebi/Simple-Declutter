@@ -421,17 +421,17 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "G:\\games\\spt 311\\_Dev\\Simple-Declutter\\SimpleDeclutter.csproj",
+      "projectUniqueName": "G:\\games\\spt 311\\_Dev\\Simple Declutter\\SimpleDeclutter.csproj",
       "projectName": "somtam.SimpleDeClutter",
-      "projectPath": "G:\\games\\spt 311\\_Dev\\Simple-Declutter\\SimpleDeclutter.csproj",
+      "projectPath": "G:\\games\\spt 311\\_Dev\\Simple Declutter\\SimpleDeclutter.csproj",
       "packagesPath": "C:\\Users\\somtam\\.nuget\\packages\\",
-      "outputPath": "G:\\games\\spt 311\\_Dev\\Simple-Declutter\\obj\\",
+      "outputPath": "G:\\games\\spt 311\\_Dev\\Simple Declutter\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
       ],
       "configFilePaths": [
-        "G:\\games\\spt 311\\_Dev\\Simple-Declutter\\NuGet.Config",
+        "G:\\games\\spt 311\\_Dev\\Simple Declutter\\NuGet.Config",
         "C:\\Users\\somtam\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
@@ -456,7 +456,8 @@
         "enableAudit": "true",
         "auditLevel": "low",
         "auditMode": "direct"
-      }
+      },
+      "SdkAnalysisLevel": "9.0.300"
     },
     "frameworks": {
       "net472": {
@@ -469,7 +470,7 @@
             "autoReferenced": true
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.408\\RuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300\\RuntimeIdentifierGraph.json"
       }
     }
   }

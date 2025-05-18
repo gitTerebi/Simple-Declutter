@@ -34,6 +34,8 @@ bld/
 [Ll]ogs/
 [Pp]ackage/
 references/
+obj/
+bin/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/

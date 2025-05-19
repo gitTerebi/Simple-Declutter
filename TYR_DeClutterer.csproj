@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
-    <AssemblyName>TYR_DeClutterer</AssemblyName>
+    <AssemblyName>somtam.SimpleDeclutter</AssemblyName>
   </PropertyGroup>
 
   <PropertyGroup>
